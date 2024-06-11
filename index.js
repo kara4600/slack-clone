@@ -1,51 +1,19 @@
 import express from 'express';
 import sequelize from './models';
+import path from 'path';
+import { loadFilesSync } from '@graphql-tools/load-files';
+import { mergeTypeDefs, mergeResolvers } from '@graphql-tools/merge';
+import { makeExecutableSchema } from '@graphql-tools/schema';
 import { createHandler } from 'graphql-http/lib/use/express';
-import { buildSchema } from 'graphql';
 import { ruruHTML } from 'ruru/server';
+import models from './models';
 
-var schema = buildSchema(`
-type Team {
-    owner: User!
-    members: [User!]!
-    channels: [Channel!]!
-}
+const typeDefs = mergeTypeDefs(loadFilesSync(path.join(__dirname, './schema')));
+const resolvers = mergeResolvers(
+  loadFilesSync(path.join(__dirname, './resolvers'))
+);
 
-type Channel {
-    id: Int!
-    name: String!
-    public: Boolean!
-    messages: [Message!]!
-    users: [User!]!
-}
-
-type Message {
-    id: Int!
-    text: String!
-    user: User!
-    channel: Channel!
-}
-
-type User {
-    id: Int!
-    username: String!
-    email: String!
-    teams: [Team!]!
-}
-type Channel {
-    teamId: String
-}
-
-  type Query {
-    hello: String
-  }
-`);
-
-var root = {
-  hello() {
-    return 'Hello world!';
-  },
-};
+const schema = makeExecutableSchema({ typeDefs, resolvers });
 
 const app = express();
 
@@ -53,7 +21,8 @@ app.all(
   '/graphql',
   createHandler({
     schema: schema,
-    rootValue: root,
+    rootValue: resolvers,
+    context: { models },
   })
 );
 
